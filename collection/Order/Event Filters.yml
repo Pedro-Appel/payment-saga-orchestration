@@ -1,0 +1,25 @@
+info:
+  name: Event Filters
+  type: http
+  seq: 2
+
+http:
+  method: get
+  url: http://localhost:3000/api/events/filters
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "orderId": "69c91c9baf8d96564d578fc1",
+        "transactionId": ""
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: false
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

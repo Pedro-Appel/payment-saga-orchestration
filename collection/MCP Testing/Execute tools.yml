@@ -1,0 +1,36 @@
+info:
+  name: Execute tools
+  type: http
+  seq: 5
+
+http:
+  method: post
+  url: http://localhost:8092/mcp/message?sessionId=08835f15-9fa1-4248-998d-e2ee9011751f
+  headers:
+    - name: Content-Type
+      value: application/json
+  params:
+    - name: sessionId
+      value: 08835f15-9fa1-4248-998d-e2ee9011751f
+      type: query
+  body:
+    type: json
+    data: |-
+      {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "method": "tools/call",
+        "params": {
+          "name": "getStockByProduct",
+          "arguments": {
+            "productCode": "COMIC_BOOKS"
+          }
+        }
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: false
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

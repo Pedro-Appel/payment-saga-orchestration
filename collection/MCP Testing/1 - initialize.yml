@@ -1,0 +1,38 @@
+info:
+  name: 1 - initialize
+  type: http
+  seq: 2
+
+http:
+  method: post
+  url: http://localhost:3000/mcp/message?sessionId=61a92522-98c7-43bc-9a33-fa2da24a62f9
+  headers:
+    - name: Content-Type
+      value: application/json
+  params:
+    - name: sessionId
+      value: 61a92522-98c7-43bc-9a33-fa2da24a62f9
+      type: query
+  body:
+    type: json
+    data: |-
+      {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+          "protocolVersion": "2024-11-05",
+          "clientInfo": {
+            "name": "test-client",
+            "version": "1.0.0"
+          },
+          "capabilities": {}
+        }
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: false
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

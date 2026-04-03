@@ -1,0 +1,31 @@
+info:
+  name: 3 - Return list of Tools
+  type: http
+  seq: 4
+
+http:
+  method: post
+  url: http://localhost:3000/mcp/message?sessionId=61a92522-98c7-43bc-9a33-fa2da24a62f9
+  headers:
+    - name: Content-Type
+      value: application/json
+  params:
+    - name: sessionId
+      value: 61a92522-98c7-43bc-9a33-fa2da24a62f9
+      type: query
+  body:
+    type: json
+    data: |-
+      {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/list",
+        "params": {}
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: false
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

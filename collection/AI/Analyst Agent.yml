@@ -1,0 +1,28 @@
+info:
+  name: Analyst Agent
+  type: http
+  seq: 1
+
+http:
+  method: get
+  url: https://localhost:8099/api/agent/chat?question=What%20are%20the%20main%20reasons%20for%20failures%3F
+  headers:
+    - name: Content-Type
+      value: application/json
+  params:
+    - name: question
+      value: What%20are%20the%20main%20reasons%20for%20failures%3F
+      type: query
+  body:
+    type: json
+    data: |-
+      {
+        "question": "Oii"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: false
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

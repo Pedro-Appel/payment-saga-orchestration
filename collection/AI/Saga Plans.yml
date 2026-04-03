@@ -1,0 +1,24 @@
+info:
+  name: Saga Plans
+  type: http
+  seq: 3
+
+http:
+  method: get
+  url: https://localhost:8099/api/agent/composer/plans
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "question": "Oii"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: false
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

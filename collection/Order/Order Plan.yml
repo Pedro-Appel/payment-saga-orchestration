@@ -1,0 +1,153 @@
+info:
+  name: "Order Plan "
+  type: http
+  seq: 1
+
+http:
+  method: post
+  url: http://localhost:3000/api/orders
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: "{{payload}}"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // ─── Configuração de Distribuição ──────────────────────────────────
+
+        const CONFIG = {
+            // Perfis de cliente (deve somar 100)
+            customerProfiles: {
+                new:       35,  // 35% clientes novos
+                returning: 45,  // 45% clientes recorrentes  
+                vip:       20,  // 20% clientes VIP
+            },
+
+            // Tipos de pedido (deve somar 100)
+            orderPatterns: {
+                normal:      70, // 70% pedido normal
+                highValue:   15, // 15% pedido alto valor
+                outOfRange:  10, // 10% fora do padrão (vai falhar)
+                minimal:      5, // 5%  pedido mínimo (stress inventário)
+            },
+
+            // Limites por perfil
+            amounts: {
+                new: {
+                    normal:     { min: 50,   max: 400  },
+                    highValue:  { min: 400,  max: 600  }, // vai bater no limite 500
+                    outOfRange: { min: 600,  max: 900  }, // vai falhar — acima do limite
+                },
+                returning: {
+                    normal:     { min: 50,   max: 800  },
+                    highValue:  { min: 800,  max: 1200 },
+                    outOfRange: { min: 1400, max: 1800 }, // vai falhar — acima de 1500
+                },
+                vip: {
+                    normal:     { min: 100,  max: 1000 },
+                    highValue:  { min: 1000, max: 1500 },
+                    outOfRange: { min: 1500, max: 2500 }, // vai falhar — acima do limite
+                },
+            },
+
+            // Quantidade de itens por padrão
+            quantities: {
+                normal:     { min: 1,  max: 5  },
+                highValue:  { min: 3,  max: 8  },
+                outOfRange: { min: 10, max: 20 }, // stress inventário
+                minimal:    { min: 1,  max: 2  },
+            },
+
+            // Produtos disponíveis
+            products: ["MOVIES", "MUSIC", "COMIC_BOOKS", "BOOKS"],
+
+            // IDs por perfil
+            customerIds: {
+                new:       { min: 1,   max: 20  }, // customer-1  a customer-20
+                returning: { min: 21,  max: 40  }, // customer-21 a customer-40
+                vip:       { min: 41,  max: 50  }, // customer-41 a customer-50
+            },
+        };
+
+        // ─── Helpers ────────────────────────────────────────────────────────
+
+        function weightedRandom(weights) {
+            const total = Object.values(weights).reduce((a, b) => a + b, 0);
+            let random  = Math.random() * total;
+            for (const [key, weight] of Object.entries(weights)) {
+                random -= weight;
+                if (random <= 0) return key;
+            }
+        }
+
+        function randomInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function randomDouble(min, max, decimals = 2) {
+            return Number((Math.random() * (max - min) + min).toFixed(decimals));
+        }
+
+        function randomFromArray(array) {
+            return array[Math.floor(Math.random() * array.length)];
+        }
+
+        // ─── Lógica Principal ────────────────────────────────────────────────
+
+        const profile = weightedRandom(CONFIG.customerProfiles);   // new | returning | vip
+        const pattern = weightedRandom(CONFIG.orderPatterns);       // normal | highValue | outOfRange | minimal
+
+        const customerId = `customer-${randomInt(
+            CONFIG.customerIds[profile].min,
+            CONFIG.customerIds[profile].max
+        )}`;
+
+        // Determina range de unitValue baseado no perfil + padrão
+        const amountRange = CONFIG.amounts[profile]?.[pattern] 
+            ?? CONFIG.amounts[profile].normal;
+
+        const quantityRange = CONFIG.quantities[pattern];
+
+        // Gera produtos
+        const numProducts = randomInt(1, 4);
+        const products = Array.from({ length: numProducts }, () => ({
+            product: {
+                code:      randomFromArray(CONFIG.products),
+                unitValue: randomDouble(amountRange.min / quantityRange.max,
+                                       amountRange.max / quantityRange.min)
+            },
+            quantity: randomInt(quantityRange.min, quantityRange.max)
+        }));
+
+        const payload = {
+            customerId,
+            products,
+            // metadata para debug — não enviado ao backend mas útil nos logs
+            _debug: {
+                profile,
+                pattern,
+                estimatedAmount: products.reduce(
+                    (sum, p) => sum + p.product.unitValue * p.quantity, 0
+                ).toFixed(2)
+            }
+        };
+
+        bru.setVar("payload", JSON.stringify({
+            customerId: payload.customerId,
+            products:   payload.products
+        }));
+
+        console.log(`[${profile.toUpperCase()}] Pattern: ${pattern} | ` +
+                    `Customer: ${customerId} | ` +
+                    `~R$${payload._debug.estimatedAmount}`);
+
+settings:
+  encodeUrl: false
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
