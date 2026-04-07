@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # ============================================================
-#  build-all.sh — Clean & Build de todos os microservicos
+#  build-all.sh — Clean & Build of all microservices
 #  Saga Orchestration + ai-saga-agent
 # ============================================================
 
 set -euo pipefail
 
-# ── Cores ────────────────────────────────────────────────────
+# ── Colors ────────────────────────────────────────────────────
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -15,15 +15,14 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-# ── Configuracao ─────────────────────────────────────────────
+# ── Configuration ─────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="${ROOT_DIR:-$SCRIPT_DIR}"
 LOG_DIR="$ROOT_DIR/build-logs"
 TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
-PARALLEL=${PARALLEL:-false}   # true = build em paralelo (mais rapido, log menos legivel)
 SKIP_TESTS=${SKIP_TESTS:-true}
 
-# Ordem importa: dependencias primeiro
+# Dependencies first
 SERVICES=(
   "orchestrator-service"
   "inventory-service"
@@ -33,7 +32,7 @@ SERVICES=(
   "ai-saga-agent"
 )
 
-# ── Contadores ───────────────────────────────────────────────
+# ── Counters ───────────────────────────────────────────────
 SUCCESS=0
 FAILED=0
 SKIPPED=0
@@ -51,7 +50,6 @@ section(){ echo -e "\n${BOLD}${BLUE}══════════════�
            echo -e "${BOLD}${BLUE}  $*${NC}"; \
            echo -e "${BOLD}${BLUE}══════════════════════════════════════════${NC}\n"; }
 
-# Detecta wrapper Gradle ou Maven
 detect_build_tool() {
   local dir="$1"
   if [[ -f "$dir/gradlew" ]]; then
@@ -67,21 +65,20 @@ detect_build_tool() {
   fi
 }
 
-# Executa clean + build para um servico
 build_service() {
   local service="$1"
   local dir="$ROOT_DIR/$service"
   local log_file="$LOG_DIR/${service}_${TIMESTAMP}.log"
   local start_time end_time elapsed
 
-  # Verifica se o diretorio existe
+  # Check if directory exists
   if [[ ! -d "$dir" ]]; then
-    warn "Diretorio nao encontrado: $dir — pulando $service"
+    warn "Directory not found: $dir — skipping $service"
     SKIPPED=$((SKIPPED + 1))
     return 0
   fi
 
-  log "${BOLD}Iniciando:${NC} $service"
+  log "${BOLD}Starting:${NC} $service"
 
   local tool
   tool=$(detect_build_tool "$dir")
@@ -108,7 +105,7 @@ build_service() {
       cmd="mvn clean package $test_flag -q"
       ;;
     unknown)
-      err "Nenhum build tool reconhecido em $dir"
+      err "No build tool recognized in: $dir"
       FAILED=$((FAILED + 1))
       FAILED_SERVICES+=("$service")
       return 1
@@ -116,49 +113,33 @@ build_service() {
   esac
 
   info "Tool: $tool | Cmd: $cmd"
-  info "Log: $log_file"
+    info "Log: $log_file"
 
-  # Executa o build
-  if (cd "$dir" && eval "$cmd") > "$log_file" 2>&1; then
-    end_time=$(date +%s)
-    elapsed=$((end_time - start_time))
-    BUILD_TIME_KEYS+=("$service")
-    BUILD_TIME_VALS+=("${elapsed}s")
-    ok "$service ${GREEN}BUILD SUCCESS${NC} (${elapsed}s)"
-    SUCCESS=$((SUCCESS + 1))
-  else
-    end_time=$(date +%s)
-    elapsed=$((end_time - start_time))
-    BUILD_TIME_KEYS+=("$service")
-    BUILD_TIME_VALS+=("${elapsed}s ✘")
-    err "$service ${RED}BUILD FAILED${NC} (${elapsed}s)"
-    echo -e "${YELLOW}  Ultimas 20 linhas do log:${NC}"
+    if (cd "$dir" && eval "$cmd") > "$log_file" 2>&1; then
+      end_time=$(date +%s)
+      elapsed=$((end_time - start_time))
+      BUILD_TIME_KEYS+=("$service")
+      BUILD_TIME_VALS+=("${elapsed}s")
+      ok "$service ${GREEN}BUILD SUCCESS${NC} (${elapsed}s)"
+      SUCCESS=$((SUCCESS + 1))
+    else
+      end_time=$(date +%s)
+      elapsed=$((end_time - start_time))
+      BUILD_TIME_KEYS+=("$service")
+      BUILD_TIME_VALS+=("${elapsed}s ✘")
+      err "$service ${RED}BUILD FAILED${NC} (${elapsed}s)"
+      echo -e "${YELLOW}  Last 20 lines of log:${NC}"
     tail -20 "$log_file" | sed 's/^/    /'
     FAILED=$((FAILED + 1))
     FAILED_SERVICES+=("$service")
 
     if [[ "${STOP_ON_FAILURE:-false}" == "true" ]]; then
-      err "STOP_ON_FAILURE=true — abortando."
+      err "STOP_ON_FAILURE=true — aborting."
       exit 1
     fi
   fi
 }
 
-# Build em paralelo
-build_parallel() {
-  local pids=()
-  local service_map=()
-
-  for service in "${SERVICES[@]}"; do
-    build_service "$service" &
-    pids+=($!)
-    service_map+=("$service")
-  done
-
-  for i in "${!pids[@]}"; do
-    wait "${pids[$i]}" || true
-  done
-}
 
 # ── Banner ───────────────────────────────────────────────────
 echo -e "${BOLD}${BLUE}"
@@ -168,35 +149,32 @@ echo "  ║   LangChain4j + MCP + Sub-Agents              ║"
 echo "  ╚═══════════════════════════════════════════════╝"
 echo -e "${NC}"
 
-# ── Argumentos ──────────────────────────────────────────────
-# Uso: ./build-all.sh [service1 service2 ...] [--parallel] [--with-tests] [--stop-on-failure]
+# ── Arguments ──────────────────────────────────────────────
+# Usage: ./build-all.sh [service1 service2 ...] [--with-tests] [--stop-on-failure]
 TARGET_SERVICES=()
 for arg in "$@"; do
   case "$arg" in
-    --parallel)        PARALLEL=true ;;
     --with-tests)      SKIP_TESTS=false ;;
     --stop-on-failure) STOP_ON_FAILURE=true ;;
     --help|-h)
-      echo "Uso: $0 [servicos...] [opcoes]"
+      echo "Usage: $0 [services...] [options]"
       echo ""
-      echo "Servicos disponíveis:"
+      echo "Available services:"
       printf '  %s\n' "${SERVICES[@]}"
       echo ""
-      echo "Opcoes:"
-      echo "  --parallel         Build em paralelo (mais rapido)"
-      echo "  --with-tests       Inclui execucao dos testes"
-      echo "  --stop-on-failure  Para ao primeiro erro"
-      echo "  --help             Esta mensagem"
+      echo "Options:"
+      echo "  --with-tests       Include test execution"
+      echo "  --stop-on-failure  Stop on first error"
+      echo "  --help             This message"
       echo ""
-      echo "Variaveis de ambiente:"
-      echo "  ROOT_DIR=<path>    Diretorio raiz dos projetos (default: pasta do script)"
+      echo "Environment variables:"
+      echo "  ROOT_DIR=<path>    Root directory of projects (default: script folder)"
       echo ""
-      echo "Exemplos:"
-      echo "  ./build-all.sh                          # Todos, sem testes"
-      echo "  ./build-all.sh --parallel               # Todos em paralelo"
-      echo "  ./build-all.sh --with-tests             # Todos com testes"
-      echo "  ./build-all.sh inventory-service ai-saga-agent  # Apenas estes dois"
-      echo "  ROOT_DIR=/home/user/projects ./build-all.sh     # Raiz customizada"
+      echo "Examples:"
+      echo "  ./build-all.sh                          # All, without tests"
+      echo "  ./build-all.sh --with-tests             # All with tests"
+      echo "  ./build-all.sh inventory-service ai-saga-agent  # Only these two"
+      echo "  ROOT_DIR=/home/user/projects ./build-all.sh     # Custom root"
       exit 0
       ;;
     *)
@@ -213,31 +191,30 @@ fi
 # ── Setup ────────────────────────────────────────────────────
 mkdir -p "$LOG_DIR"
 
-section "Configuracao"
+section "Configuration"
 info "Root dir:    $ROOT_DIR"
 info "Log dir:     $LOG_DIR"
-info "Paralelo:    $PARALLEL"
 info "Skip tests:  $SKIP_TESTS"
-info "Servicos:    ${SERVICES[*]}"
+info "Services:    ${SERVICES[*]}"
 
-# ── Verificacoes pre-build ───────────────────────────────────
-section "Verificacoes"
+# ── Pre-build checks ───────────────────────────────────
+section "Checks"
 
 # Java
 if ! command -v java &>/dev/null; then
-  err "Java nao encontrado. Instale JDK 17+."
+  err "Java not found. Install JDK 17+."
   exit 1
 fi
 JAVA_VERSION=$(java -version 2>&1 | head -1)
 ok "Java: $JAVA_VERSION"
 
-# Verifica OPENAI_API_KEY se ai-saga-agent esta na lista
+# Check OPENAI_API_KEY if ai-saga-agent is in the list
 if printf '%s\n' "${SERVICES[@]}" | grep -q "ai-saga-agent"; then
   if [[ -z "${OPENAI_API_KEY:-}" ]]; then
-    warn "OPENAI_API_KEY nao definida — ai-saga-agent pode falhar em runtime"
+    warn "OPENAI_API_KEY not defined — ai-saga-agent may fail at runtime"
     warn "  Export: export OPENAI_API_KEY=sk-..."
   else
-    ok "OPENAI_API_KEY: configurada"
+    ok "OPENAI_API_KEY: configured"
   fi
 fi
 
@@ -259,28 +236,22 @@ else
 fi
 
 # ── Build ─────────────────────────────────────────────────────
-section "Build (${#SERVICES[@]} servicos)"
+section "Build (${#SERVICES[@]} services)"
 GLOBAL_START=$(date +%s)
 
-if [[ "$PARALLEL" == "true" ]]; then
-  warn "Modo paralelo ativo — logs individuais em $LOG_DIR"
-  build_parallel
-else
-  for service in "${SERVICES[@]}"; do
-    echo ""
-    build_service "$service"
-  done
-fi
+for service in "${SERVICES[@]}"; do
+  echo ""
+  build_service "$service"
+done
 
 GLOBAL_END=$(date +%s)
 GLOBAL_ELAPSED=$((GLOBAL_END - GLOBAL_START))
 
-# ── Relatorio Final ───────────────────────────────────────────
-section "Relatorio Final"
+# ── Final Report ───────────────────────────────────────────
+section "Final Report"
 
-echo -e "${BOLD}Tempo por servico:${NC}"
+echo -e "${BOLD}Time per service:${NC}"
 for service in "${SERVICES[@]}"; do
-  # Busca o tempo no array paralelo
   time_str=""
   for i in "${!BUILD_TIME_KEYS[@]}"; do
     if [[ "${BUILD_TIME_KEYS[$i]}" == "$service" ]]; then
@@ -290,7 +261,7 @@ for service in "${SERVICES[@]}"; do
   done
 
   if [[ -z "$time_str" ]]; then
-    echo -e "  ${YELLOW}–${NC}  $(printf '%-40s' "$service") ${YELLOW}pulado${NC}"
+    echo -e "  ${YELLOW}–${NC}  $(printf '%-40s' "$service") ${YELLOW}skipped${NC}"
   elif [[ "$time_str" == *"✘"* ]]; then
     echo -e "  ${RED}✘${NC}  $(printf '%-40s' "$service") ${RED}$time_str${NC}"
   else
@@ -299,15 +270,15 @@ for service in "${SERVICES[@]}"; do
 done
 
 echo ""
-echo -e "${BOLD}Resumo:${NC}"
-echo -e "  ${GREEN}✔  Sucesso: $SUCCESS${NC}"
-echo -e "  ${RED}✘  Falhas:  $FAILED${NC}"
-echo -e "  ${YELLOW}–  Pulados: $SKIPPED${NC}"
+echo -e "${BOLD}Summary:${NC}"
+echo -e "  ${GREEN}✔  Success: $SUCCESS${NC}"
+echo -e "  ${RED}✘  Failures: $FAILED${NC}"
+echo -e "  ${YELLOW}–  Skipped: $SKIPPED${NC}"
 echo -e "  ${CYAN}⏱  Total:   ${GLOBAL_ELAPSED}s${NC}"
 
 if [[ ${#FAILED_SERVICES[@]} -gt 0 ]]; then
   echo ""
-  err "Servicos com falha:"
+  err "Services with failures:"
   for svc in "${FAILED_SERVICES[@]}"; do
     echo -e "  ${RED}•${NC} $svc — log: $LOG_DIR/${svc}_${TIMESTAMP}.log"
   done
@@ -315,6 +286,6 @@ if [[ ${#FAILED_SERVICES[@]} -gt 0 ]]; then
   exit 1
 else
   echo ""
-  ok "${GREEN}${BOLD}Todos os builds concluídos com sucesso!${NC}"
+  ok "${GREEN}${BOLD}All builds completed successfully!${NC}"
   echo ""
 fi
