@@ -13,6 +13,7 @@ services:
       - MONGO_INITDB_ROOT_PASSWORD=123456
     ports:
       - 27017:27017
+
   product-db:
     container_name: product-db
     image: postgres:latest
@@ -25,6 +26,7 @@ services:
       - orchestrator-saga
     ports:
       - "5432:5432"
+
   payment-db:
     container_name: payment-db
     image: postgres:latest
@@ -37,6 +39,7 @@ services:
       - orchestrator-saga
     ports:
       - "5433:5432"
+
   inventory-db:
     container_name: inventory-db
     image: postgres:latest
@@ -49,6 +52,7 @@ services:
       - orchestrator-saga
     ports:
       - "5434:5432"
+
   vectors-db:
     container_name: vectors-db
     image: pgvector/pgvector:pg16
@@ -63,6 +67,7 @@ services:
       - "5435:5432"
     volumes:
       - ./ai-saga-agent/src/main/resources/init-vectors.sql:/docker-entrypoint-initdb.d/init.sql
+
   redis:
     image: redis:7
     ports:
@@ -90,7 +95,8 @@ services:
       KAFKA_RESTART_DELAY: "5"
       ZOOKEEPER_AUTOPURGE_PURGE_INTERVAL: "0"
     volumes:
-      - ./data/kafka/data:/var/lib/kafka/data
+      - ./misc/data/kafka/data:/var/lib/kafka/data
+
   redpanda-console:
     container_name: redpanda
     image: redpandadata/console:latest
@@ -123,6 +129,7 @@ services:
       - MONGO_DB_URI=mongodb://admin:123456@order-db:27017
     ports:
       - 3000:3000
+
   orchestrator-service:
     build: './orchestrator-service'
     container_name: orchestrator-service
@@ -134,6 +141,7 @@ services:
       - KAFKA_BROKER=kafka:29092
     ports:
       - 8050:8050
+
   product-validation-service:
     build: './product-validation-service'
     container_name: product-validation-service
@@ -151,6 +159,7 @@ services:
       - DB_PASSWORD=postgres
     ports:
       - 8090:8090
+
   payment-service:
     build: './payment-service'
     container_name: payment-service
@@ -168,6 +177,7 @@ services:
       - DB_PASSWORD=postgres
     ports:
       - 8091:8091
+
   inventory-service:
     build: './inventory-service'
     container_name: inventory-service
@@ -197,12 +207,54 @@ services:
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
     restart: unless-stopped
+    networks:
+      - orchestrator-saga
+
   grafana:
     image: grafana/grafana-enterprise
     container_name: grafana
     ports:
       - "3001:3000"
     restart: unless-stopped
+    networks:
+      - orchestrator-saga
+
+  elasticsearch:
+    image: elasticsearch:9.3.3
+    container_name: elasticsearch
+    environment:
+      - node.name=elasticsearch
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+    ports:
+      - "9200:9200"
+    networks:
+      - orchestrator-saga
+    volumes:
+      - ./logs/elasticsearch:/usr/share/elasticsearch/data
+
+  logstash:
+    image: logstash:9.3.3
+    container_name: logstash
+    volumes:
+      - ./misc/logstash/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+    ports:
+      - "5000:5000"
+    networks:
+      - orchestrator-saga
+    depends_on:
+    - elasticsearch
+
+  kibana:
+    image: kibana:9.3.3
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+    networks:
+      - orchestrator-saga
 
 networks:
   orchestrator-saga:

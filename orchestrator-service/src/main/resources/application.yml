@@ -14,10 +14,12 @@ spring:
       auto-offset-reset: latest
 
 logging:
-  level:
-    org:
-      apache:
-        kafka: OFF
+  level.org.apache.kafka: OFF
+  pattern:
+    dateformat: yyyy-MM-dd'T'HH:mm:ss.SSSZ
+    patterntemplate: "[%p] %c{1}: %m%n"
+  file:
+    name: logs/service.log
 
 management:
   endpoints:
