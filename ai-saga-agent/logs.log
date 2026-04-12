@@ -1,1 +1,0 @@
-GEMINI_API_KEY="AIzaSyDTLrbY5cbuH81cLm-oFgiqB4Vxmtu-l2U" java -jar build/libs/ai-saga-agent-0.0.1-SNAPSHOT.jar
